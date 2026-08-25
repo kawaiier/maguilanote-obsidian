@@ -6,7 +6,7 @@ Format: `YYYY-MM-DD — short description. Why (if not obvious). Files touched.`
 
 ## 2026-08-25 (1.1.0)
 
-- **Boards can be renamed from the breadcrumb trail.** Right-click the current board's name in the breadcrumb bar (top-left of the canvas) and enter a new name. The rename uses `fileManager.renameFile`, so Obsidian updates every Markdown link to the board. On top of that, a vault `rename` listener repairs the references Obsidian can't see: nested-board cards (plain JSON `path` fields) inside other `.board` files get their path — and title, unless the user customized it — rewritten, and open boards' breadcrumb trails are refreshed. This also covers renames done in Obsidian's file explorer. Renaming to a name that already exists in the same folder is refused. Files: `src/main.ts`, `src/board-view.ts`, `src/styles/chrome.css`, `README.md`, `docs/ARCHITECTURE.md`, `package.json`, `manifest.json`, `versions.json`.
+- **Boards can be renamed from the breadcrumb trail.** Double-click the current board's name in the breadcrumb bar (top-left of the canvas) and enter a new name. The rename uses `fileManager.renameFile`, so Obsidian updates every Markdown link to the board. On top of that, a vault `rename` listener repairs the references Obsidian can't see: nested-board cards (plain JSON `path` fields) inside other `.board` files get their path — and title, unless the user customized it — rewritten, and open boards' breadcrumb trails are refreshed. This also covers renames done in Obsidian's file explorer. Renaming to a name that already exists in the same folder is refused. Files: `src/main.ts`, `src/board-view.ts`, `src/styles/chrome.css`, `README.md`, `docs/ARCHITECTURE.md`, `package.json`, `manifest.json`, `versions.json`.
 
 ## 2026-07-12 (1.0.4)
 

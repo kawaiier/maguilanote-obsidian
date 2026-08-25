@@ -220,8 +220,8 @@ export class BoardView extends TextFileView {
         text: p.name,
       });
       if (last) {
-        seg.setAttribute("title", "Right-click to rename");
-        seg.addEventListener("contextmenu", (e) => {
+        seg.setAttribute("title", "Double-click to rename");
+        seg.addEventListener("dblclick", (e) => {
           e.preventDefault();
           this.plugin.renameBoard(this);
         });
