@@ -1051,10 +1051,10 @@ body.mgn-todo-grabbing * {
 .mgn-crumb-current {
   color: var(--mgn-text-bright);
   font-weight: 600;
-  cursor: context-menu;
+  cursor: default;
 }
 .mgn-crumb-current:hover {
-  text-decoration: none;
+  text-decoration: underline;
 }
 .mgn-crumb-sep {
   color: var(--mgn-panel-sep);
