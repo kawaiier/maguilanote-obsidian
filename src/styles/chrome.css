@@ -170,7 +170,7 @@
 .mgn-crumb-current {
   color: var(--mgn-text-bright);
   font-weight: 600;
-  cursor: default;
+  cursor: context-menu;
 }
 .mgn-crumb-current:hover {
   text-decoration: none;

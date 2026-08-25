@@ -4,6 +4,10 @@ Living log of significant changes to the project. This is **not** optional bookk
 
 Format: `YYYY-MM-DD — short description. Why (if not obvious). Files touched.`
 
+## 2026-08-25 (1.1.0)
+
+- **Boards can be renamed from the breadcrumb trail.** Right-click the current board's name in the breadcrumb bar (top-left of the canvas) and enter a new name. The rename uses `fileManager.renameFile`, so Obsidian updates every Markdown link to the board. On top of that, a vault `rename` listener repairs the references Obsidian can't see: nested-board cards (plain JSON `path` fields) inside other `.board` files get their path — and title, unless the user customized it — rewritten, and open boards' breadcrumb trails are refreshed. This also covers renames done in Obsidian's file explorer. Renaming to a name that already exists in the same folder is refused. Files: `src/main.ts`, `src/board-view.ts`, `src/styles/chrome.css`, `README.md`, `docs/ARCHITECTURE.md`, `package.json`, `manifest.json`, `versions.json`.
+
 ## 2026-07-12 (1.0.4)
 
 - **Google Fonts no longer load through an injected `<style>` element.** The 1.0.3 fix swapped the `<link>` for a `<style>`, which the Obsidian review also rejects ("Creating and attaching 'style' elements is not allowed"). The css2 stylesheet is now fetched with `requestUrl`, its `@font-face` blocks are parsed, and each face is registered through the FontFace API (`document.fonts.add`) — no DOM element is created. `onunload` removes the registered faces. `tsconfig.json` gains the `DOM.Iterable` lib so `FontFaceSet.add`/`delete` typecheck. Files: `src/fonts.ts`, `tsconfig.json`.

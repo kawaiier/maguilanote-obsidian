@@ -63,6 +63,7 @@ A Milanote-style visual workspace for [Obsidian](https://obsidian.md): notes, im
 ## Usage
 
 - The ribbon icon or the **"Maguilanote: New board"** command creates a `.board` file.
+- **Right-click the board's name in the breadcrumb trail to rename it** — Markdown links and nested-board references across your vault update automatically.
 - Double-click the canvas to create a note. The left toolbar adds every other card type — **drag** a tool onto the canvas to create it where you drop it (a plain click on a drag-only tool just shakes it as a hint). Draw is the exception: click it (or press `D`) to enter draw mode.
 - Click a card to select it; drag to move. Inputs inside a card only activate once it is selected. Double-click to edit/open.
 - Drag files from the OS or from Obsidian's file explorer straight onto the board (`.board` files become nested boards).
