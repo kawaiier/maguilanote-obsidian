@@ -1054,7 +1054,7 @@ body.mgn-todo-grabbing * {
   cursor: default;
 }
 .mgn-crumb-current:hover {
-  text-decoration: none;
+  text-decoration: underline;
 }
 .mgn-crumb-sep {
   color: var(--mgn-panel-sep);

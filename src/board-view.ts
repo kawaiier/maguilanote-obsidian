@@ -219,6 +219,13 @@ export class BoardView extends TextFileView {
         cls: "mgn-crumb" + (last ? " mgn-crumb-current" : ""),
         text: p.name,
       });
+      if (last) {
+        seg.setAttribute("title", "Double-click to rename");
+        seg.addEventListener("dblclick", (e) => {
+          e.preventDefault();
+          this.plugin.renameBoard(this);
+        });
+      }
       if (!last) {
         seg.addEventListener("click", () => {
           const f = this.app.vault.getAbstractFileByPath(p.path);

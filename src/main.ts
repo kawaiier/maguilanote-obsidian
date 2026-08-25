@@ -5,6 +5,7 @@ import {
   Platform,
   Plugin,
   PluginSettingTab,
+  TAbstractFile,
   TFile,
   TFolder,
   normalizePath,
@@ -13,7 +14,7 @@ import { BoardView, VIEW_TYPE_BOARD } from "./board-view";
 import { renderSettingsUI } from "./settings-ui";
 import { loadOpenAiApiKey } from "./secrets";
 import { removeGoogleFonts } from "./fonts";
-import { ImportTemplateConfirmModal } from "./modals";
+import { ImportTemplateConfirmModal, TextPromptModal } from "./modals";
 import { TemplateBundle, collectBundle, unbundleTemplate } from "./template-bundle";
 import {
   BoardData,
@@ -147,6 +148,15 @@ export default class MaguilanotePlugin extends Plugin {
         }
       })
     );
+
+    // a board renamed anywhere (our breadcrumb right-click or Obsidian's file
+    // explorer) leaves stale paths in other .board files and breadcrumb trails —
+    // Obsidian's link updater only knows about links, not these JSON references
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) =>
+        this.repairBoardRefs(file, oldPath)
+      )
+    );
   }
 
   activeBoard(): BoardView | null {
@@ -170,6 +180,108 @@ export default class MaguilanotePlugin extends Plugin {
     );
     await this.app.workspace.getLeaf(false).openFile(file);
     return file;
+  }
+
+  /** Rename the current board in place (same folder). `fileManager.renameFile`
+   * updates every markdown link to the board; references stored inside other
+   * .board files and open breadcrumb trails are fixed by the vault "rename"
+   * listener (repairBoardRefs), since Obsidian can't see those JSON paths. */
+  renameBoard(view: BoardView) {
+    const file = view.file;
+    if (!file) return;
+    new TextPromptModal(this.app, "Rename board", file.basename, async (name) => {
+      if (!name || name === file.basename) return;
+      const prefix = file.parent && file.parent.path !== "/" ? file.parent.path + "/" : "";
+      const newPath = normalizePath(`${prefix}${name}.board`);
+      if (this.app.vault.getAbstractFileByPath(newPath)) {
+        new Notice(`"${name}.board" already exists in that folder`);
+        return;
+      }
+      try {
+        await this.app.fileManager.renameFile(file, newPath);
+      } catch (e) {
+        new Notice(`Rename failed: ${e instanceof Error ? e.message : e}`);
+      }
+    }).open();
+  }
+
+  /**
+   * After a .board file is renamed by any means, repair the references Obsidian
+   * can't reach: nested board cards (`type: "board"`, stored as plain JSON paths)
+   * inside other .board files, and the breadcrumb trails of open board views.
+   * Titles are refreshed only when they still match the old basename, so a card
+   * the user has given a custom title keeps it.
+   */
+  private async repairBoardRefs(file: TAbstractFile, oldPath: string) {
+    if (!(file instanceof TFile) || file.extension !== "board") return;
+
+    const views = this.app.workspace
+      .getLeavesOfType(VIEW_TYPE_BOARD)
+      .map((leaf) => leaf.view)
+      .filter((v): v is BoardView => v instanceof BoardView);
+    for (const view of views) {
+      let touched = false;
+      for (const c of view.crumbs) {
+        if (c.path === oldPath) {
+          c.path = file.path;
+          c.name = file.basename;
+          touched = true;
+        }
+      }
+      if (touched || view.file?.path === file.path) view.renderCrumbs();
+    }
+
+    const oldBasename = oldPath.split("/").pop()?.replace(/\.board$/i, "") ?? oldPath;
+    const open = new Map<string, BoardView>(
+      views
+        .filter((v) => !!v.file)
+        .map((v) => [v.file!.path, v])
+    );
+
+    for (const f of this.app.vault.getFiles()) {
+      if (f.extension !== "board") continue;
+      let raw: string;
+      try {
+        raw = await this.app.vault.read(f);
+      } catch {
+        continue;
+      }
+      if (!raw.includes(oldPath)) continue;
+      let data: BoardData;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        continue; // corrupt file — never rewrite it
+      }
+      if (!Array.isArray(data.items)) continue;
+      const openView = open.get(f.path);
+      if (openView) {
+        let dirty = false;
+        for (const it of openView.board.items) {
+          if (it.type === "board" && it.path === oldPath) {
+            it.path = file.path;
+            if (it.title === oldBasename) it.title = file.basename;
+            dirty = true;
+          }
+        }
+        if (dirty) openView.commit(); // saves through the view's own pipeline
+        continue;
+      }
+      let dirty = false;
+      for (const it of data.items) {
+        if (it.type === "board" && it.path === oldPath) {
+          it.path = file.path;
+          if (it.title === oldBasename) it.title = file.basename;
+          dirty = true;
+        }
+      }
+      if (!dirty) continue;
+      try {
+        await this.app.vault.modify(f, JSON.stringify(data, null, 2));
+      } catch {
+        // leave this board alone; the next rename will retry
+      }
+    }
   }
 
   /** Bundles `view`'s board and everything it references (nested boards, images, files, recordings) into a single `.board.template` in the templates folder. */
