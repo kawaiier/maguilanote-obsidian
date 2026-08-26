@@ -149,6 +149,8 @@ export class BoardView extends TextFileView {
   // manual double-click detection (pointer capture retargets native dblclick)
   lastClickAt = 0;
   lastClickId: string | null = null;
+  lastClickX = 0;
+  lastClickY = 0;
   lastDownOnCanvas = false;
   // pointermove throttling (1x per frame)
   rafPending = false;
@@ -518,6 +520,7 @@ export class BoardView extends TextFileView {
     this.registerDomEvent(this.viewportEl, "pointermove", (e) => this.onPointerMove(e));
     this.registerDomEvent(this.viewportEl, "pointerup", (e) => this.onPointerUp(e));
     this.registerDomEvent(this.viewportEl, "pointercancel", (e) => this.onPointerUp(e));
+    this.registerDomEvent(this.viewportEl, "pointerdown", (e) => this.onPencilTap(e));
     this.registerDomEvent(this.viewportEl, "dblclick", (e) => this.onDblClick(e));
     this.registerDomEvent(this.viewportEl, "wheel", (e) => this.onWheel(e), { passive: false });
     this.registerDomEvent(this.viewportEl, "contextmenu", (e) => this.onContextMenu(e));
@@ -666,6 +669,26 @@ export class BoardView extends TextFileView {
   refreshSelectionClasses() { return refreshSelectionClassesImpl(this); }
 
   onWheel(e: WheelEvent) { return onWheelImpl(this, e); }
+
+  onPencilTap(e: PointerEvent) {
+    if (e.pointerType !== "pen" || e.button !== 0 || this.drawMode) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("input, textarea, audio, iframe, .mgn-connector, .mgn-resize, .mgn-video-bar")) return;
+    const cardEl = target.closest<HTMLElement>(".mgn-card");
+    if (!cardEl?.dataset.id) return;
+    const it = this.item(cardEl.dataset.id);
+    if (!it || it.type !== "sketch") return;
+    const now = Date.now();
+    const closeEnough = Math.hypot(e.clientX - this.lastClickX, e.clientY - this.lastClickY) < 24;
+    if (this.lastClickId === it.id && closeEnough && now - this.lastClickAt < 450) {
+      this.lastClickId = null;
+      this.openSketchPopup(it);
+    }
+    this.lastClickId = it.id;
+    this.lastClickAt = now;
+    this.lastClickX = e.clientX;
+    this.lastClickY = e.clientY;
+  }
 
   onDblClick(e: MouseEvent) {
     if (this.drawMode) return;

@@ -289,7 +289,8 @@ export function processPointerMove(view: BoardView, e: PointerEvent) {
       const w = view.screenToWorld(e.clientX, e.clientY);
       let dx = w.x - d.startWX;
       let dy = w.y - d.startWY;
-      if (!d.moved && Math.abs(dx) + Math.abs(dy) > 3) {
+      const tapSlop = e.pointerType === "pen" ? 12 : 3;
+      if (!d.moved && Math.abs(dx) + Math.abs(dy) > tapSlop) {
         d.moved = true;
         for (const id of d.ids) {
           view.worldEl.querySelector(`.mgn-card[data-id="${id}"]`)?.classList.add("mgn-dragging");
@@ -474,9 +475,12 @@ export function onPointerUp(view: BoardView, e: PointerEvent) {
           const it = view.item(d.ids[0]);
           if (it) {
             const now = Date.now();
-            const isDouble = view.lastClickId === it.id && now - view.lastClickAt < 450;
+            const closeEnough = Math.hypot(e.clientX - view.lastClickX, e.clientY - view.lastClickY) < 24;
+            const isDouble = view.lastClickId === it.id && closeEnough && now - view.lastClickAt < 450;
             view.lastClickAt = now;
             view.lastClickId = it.id;
+            view.lastClickX = e.clientX;
+            view.lastClickY = e.clientY;
             if (isDouble) {
               view.lastClickId = null; // avoid triple-click re-trigger
               view.openCard(it);
