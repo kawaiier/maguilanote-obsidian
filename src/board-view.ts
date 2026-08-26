@@ -6,7 +6,7 @@ import {
 } from "obsidian";
 import type MaguilanotePlugin from "./main";
 import { ColorPromptModal, SettingsModal, TextPromptModal } from "./modals";
-import { drawEdgesFn, renderCardFn } from "./render";
+import { cancelTodoDrags, clearRecordAudio, drawEdgesFn, renderCardFn } from "./render";
 import { ensureGoogleFont, fontFamilyValue } from "./fonts";
 import { ContextToolbar, DrawSession } from "./draw";
 import { closeCardToolbar as closeCardToolbarImpl, syncCardToolbar as syncCardToolbarImpl } from "./card-toolbar";
@@ -34,6 +34,7 @@ import {
   onPointerMove as onPointerMoveImpl,
   processPointerMove as processPointerMoveImpl,
   onPointerUp as onPointerUpImpl,
+  onPointerCancel as onPointerCancelImpl,
   cardIdUnder as cardIdUnderImpl,
   highlightCardUnder as highlightCardUnderImpl,
   clearCardHighlight as clearCardHighlightImpl,
@@ -77,8 +78,10 @@ import {
   exitDrawMode as exitDrawModeImpl,
   addSketch as addSketchImpl,
   openSketchPopup as openSketchPopupImpl,
+  updateSurfaceViewBox,
 } from "./drawing-toolbar";
 import {
+  closeRecordPopups,
   openRecordPopup as openRecordPopupImpl,
   transcribeRecord as transcribeRecordImpl,
 } from "./record-card";
@@ -104,11 +107,21 @@ export class BoardView extends TextFileView {
   panX = 0;
   panY = 0;
   zoom = 1;
+  private fitTimer: number | null = null;
+  rafId: number | null = null;
+  closed = false;
 
   selection = new Set<string>();
   selectedEdges: Set<string> = new Set();
   spaceDown = false;
   drag: DragMode = { kind: "none" };
+  /** Pointer IDs currently participating in a touch gesture. */
+  touchPointers = new Map<number, { x: number; y: number }>();
+  /** Pointer that owns the active single-pointer board gesture. */
+  gesturePointerId: number | null = null;
+  longPressTimer: number | null = null;
+  longPressStartX = 0;
+  longPressStartY = 0;
 
   history: string[] = [];
   histIdx = -1;
@@ -157,6 +170,9 @@ export class BoardView extends TextFileView {
   lastMoveEvent: PointerEvent | null = null;
   // Used to reject a palm touch while an Apple Pencil interaction is active.
   activePenPointerId: number | null = null;
+  penReleaseTimer: number | null = null;
+  resizeObserver: ResizeObserver | null = null;
+  private toolDragCancel: (() => void) | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: MaguilanotePlugin) {
     super(leaf);
@@ -179,6 +195,23 @@ export class BoardView extends TextFileView {
   }
 
   setViewData(raw: string, clear: boolean): void {
+    const oldRecordIds = this.board.items.filter((it) => it.type === "record").map((it) => it.id);
+    clearRecordAudio(oldRecordIds);
+    closeRecordPopups(this);
+    if (this.longPressTimer !== null) window.clearTimeout(this.longPressTimer);
+    this.longPressTimer = null;
+    this.toolDragCancel?.();
+    this.toolDragCancel = null;
+    cancelTodoDrags(this);
+    this.drag = { kind: "none" };
+    this.touchPointers.clear();    this.gesturePointerId = null;
+    this.activePenPointerId = null;
+    if (this.penReleaseTimer !== null) window.clearTimeout(this.penReleaseTimer);
+    this.penReleaseTimer = null;
+    if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    this.rafId = null;
+    this.rafPending = false;
+    this.lastMoveEvent = null;
     this.board = parseBoard(raw);
     if (clear) {
       this.history = [JSON.stringify(this.board)];
@@ -189,7 +222,11 @@ export class BoardView extends TextFileView {
     }
     this.render();
     this.renderCrumbs();
-    window.setTimeout(() => this.zoomToFit(true), 50);
+    if (this.fitTimer !== null) window.clearTimeout(this.fitTimer);
+    this.fitTimer = window.setTimeout(() => {
+      this.fitTimer = null;
+      if (!this.closed && this.viewportEl) this.zoomToFit(true);
+    }, 50);
   }
 
   clear(): void {
@@ -320,6 +357,7 @@ export class BoardView extends TextFileView {
 
   // ------------------------------------------------------------------ dom
   async onOpen() {
+    this.closed = false;
     const root = this.contentEl;
     root.empty();
     root.addClass("mgn-root");
@@ -529,7 +567,8 @@ export class BoardView extends TextFileView {
     this.registerDomEvent(this.viewportEl, "pointerdown", (e) => this.onPointerDown(e));
     this.registerDomEvent(this.viewportEl, "pointermove", (e) => this.onPointerMove(e));
     this.registerDomEvent(this.viewportEl, "pointerup", (e) => this.onPointerUp(e));
-    this.registerDomEvent(this.viewportEl, "pointercancel", (e) => this.onPointerUp(e));
+    this.registerDomEvent(this.viewportEl, "pointercancel", (e) => this.onPointerCancel(e));
+    this.registerDomEvent(this.viewportEl, "lostpointercapture", (e) => this.onPointerCancel(e as PointerEvent));
     this.registerDomEvent(this.viewportEl, "pointerdown", (e) => this.onPencilTap(e));
     this.registerDomEvent(this.viewportEl, "dblclick", (e) => this.onDblClick(e));
     this.registerDomEvent(this.viewportEl, "wheel", (e) => this.onWheel(e), { passive: false });
@@ -543,9 +582,40 @@ export class BoardView extends TextFileView {
     this.registerDomEvent(this.viewportEl, "paste", (e) => this.onPaste(e));
 
     this.applyTransform();
+    this.resizeObserver = new ResizeObserver(() => {
+      this.applyTransform();
+      this.drawEdges();
+      if (this.drawMode) updateSurfaceViewBox(this, this.drawMode.surface);
+    });
+    this.resizeObserver.observe(this.viewportEl);
   }
 
   async onClose() {
+    this.closed = true;
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    if (this.fitTimer !== null) window.clearTimeout(this.fitTimer);
+    this.fitTimer = null;
+    if (this.drawMode) this.exitDrawMode(false);
+    closeRecordPopups(this);
+    this.closePreview();
+    this.toolDragCancel?.();
+    this.toolDragCancel = null;
+    cancelTodoDrags(this);
+    this.drag = { kind: "none" };
+    if (this.longPressTimer !== null) window.clearTimeout(this.longPressTimer);
+    this.longPressTimer = null;
+    this.touchPointers.clear();
+    this.gesturePointerId = null;
+    if (this.penReleaseTimer !== null) window.clearTimeout(this.penReleaseTimer);
+    this.penReleaseTimer = null;
+    this.activePenPointerId = null;
+    if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    this.rafId = null;
+    this.rafPending = false;
+    this.lastMoveEvent = null;
+    clearRecordAudio(this.board.items.filter((it) => it.type === "record").map((it) => it.id));
+    document.body.removeClass("mgn-todo-grabbing");
     this.contentEl.empty();
   }
 
@@ -557,9 +627,11 @@ export class BoardView extends TextFileView {
     let moved = false;
     let ghost: HTMLElement | null = null;
     const stop = () => {
+      if (this.toolDragCancel === cancel) this.toolDragCancel = null;
       window.removeEventListener("pointermove", move, true);
       window.removeEventListener("pointerup", up, true);
       window.removeEventListener("pointercancel", cancel, true);
+      window.removeEventListener("lostpointercapture", cancel, true);
       btn.removeClass("mgn-tool-dragging");
       ghost?.remove();
     };
@@ -591,9 +663,11 @@ export class BoardView extends TextFileView {
     const cancel = (ev: PointerEvent) => {
       if (ev.pointerId === pointerId) { ev.preventDefault(); stop(); }
     };
+    this.toolDragCancel = () => cancel(start);
     window.addEventListener("pointermove", move, true);
     window.addEventListener("pointerup", up, true);
     window.addEventListener("pointercancel", cancel, true);
+    window.addEventListener("lostpointercapture", cancel, true);
   }
 
   /** visual nudge for a drag-only tool clicked instead of dragged */
@@ -662,6 +736,8 @@ export class BoardView extends TextFileView {
   processPointerMove(e: PointerEvent) { return processPointerMoveImpl(this, e); }
 
   onPointerUp(e: PointerEvent) { return onPointerUpImpl(this, e); }
+
+  onPointerCancel(e: PointerEvent) { return onPointerCancelImpl(this, e); }
 
   /** id of the topmost card under the pointer, or null over empty canvas */
   cardIdUnder(e: PointerEvent | MouseEvent): string | null { return cardIdUnderImpl(this, e); }
