@@ -346,6 +346,11 @@ export class BoardView extends TextFileView {
           ev.dataTransfer?.setData("mgn-tool", opts.drag!);
           if (ev.dataTransfer) ev.dataTransfer.effectAllowed = "copy";
         });
+        // iPadOS does not reliably start native HTML drag-and-drop from Apple
+        // Pencil input, so provide a small Pointer Events fallback.
+        b.addEventListener("pointerdown", (ev) => {
+          if (ev.pointerType === "pen") this.dragToolWithPointer(b, opts.drag!, ev);
+        });
       }
       return b;
     };
@@ -529,6 +534,43 @@ export class BoardView extends TextFileView {
 
   async onClose() {
     this.contentEl.empty();
+  }
+
+  /** Drag a toolbar tool with Apple Pencil (native HTML DnD is not reliable on iPadOS). */
+  private dragToolWithPointer(btn: HTMLElement, key: string, start: PointerEvent) {
+    start.preventDefault();
+    const pointerId = start.pointerId;
+    const sx = start.clientX, sy = start.clientY;
+    let moved = false;
+    const stop = () => {
+      window.removeEventListener("pointermove", move, true);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", cancel, true);
+      btn.removeClass("mgn-tool-dragging");
+    };
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      ev.preventDefault();
+      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) > 8) {
+        moved = true;
+        btn.addClass("mgn-tool-dragging");
+      }
+    };
+    const up = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      ev.preventDefault();
+      if (moved && this.viewportEl.contains(document.elementFromPoint(ev.clientX, ev.clientY))) {
+        const w = this.screenToWorld(ev.clientX, ev.clientY);
+        this.createFromTool(key, w.x, w.y);
+      }
+      stop();
+    };
+    const cancel = (ev: PointerEvent) => {
+      if (ev.pointerId === pointerId) { ev.preventDefault(); stop(); }
+    };
+    window.addEventListener("pointermove", move, true);
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", cancel, true);
   }
 
   /** visual nudge for a drag-only tool clicked instead of dragged */
