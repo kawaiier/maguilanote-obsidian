@@ -76,12 +76,12 @@ export function renderVideoPlayer(view: BoardView, el: HTMLElement, src: string)
 export function renderRecordPlayer(el: HTMLElement, it: Item, src: string) {
   const oldAudio = recordAudio.get(it.id);
   oldAudio?.pause();
-  // Keep the media element in the DOM. iPadOS is more reliable with a real,
-  // attached <audio> element than with an unattached `new Audio()` object.
-  const player = el.createDiv({ cls: "mgn-record-player" });
-  const audio = player.createEl("audio", { attr: { src, preload: "metadata" } });
-  audio.hide();
+  // Keep the media element attached, but outside the drag-control row so the
+  // card can still be grabbed anywhere around its visible player.
+  const audio = el.createEl("audio", { cls: "mgn-record-audio", attr: { src, preload: "metadata" } });
+  audio.controls = true;
   recordAudio.set(it.id, audio);
+  const player = el.createDiv({ cls: "mgn-record-player" });
   const btn = player.createEl("button", { cls: "mgn-record-play" });
   const bar = player.createDiv({ cls: "mgn-record-bar" });
   const fill = bar.createDiv({ cls: "mgn-record-bar-fill" });

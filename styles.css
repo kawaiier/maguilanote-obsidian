@@ -393,6 +393,12 @@
   flex-direction: column;
   justify-content: center;
 }
+.mgn-record-audio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0.01;
+}
 .mgn-record-player {
   display: flex;
   align-items: center;
