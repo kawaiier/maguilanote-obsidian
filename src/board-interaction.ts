@@ -44,6 +44,10 @@ function setDragTilt(view: BoardView, ids: string[], deg: number) {
 
 export function onPointerDown(view: BoardView, e: PointerEvent) {
   if (view.drawMode) return; // draw surface handles its own pointers
+  // A touch contact arriving alongside Apple Pencil is normally a palm. Do not
+  // let it start a pan, selection, card drag, or other canvas gesture.
+  if (e.pointerType === "touch" && view.activePenPointerId !== null) return;
+  if (e.pointerType === "pen") view.activePenPointerId = e.pointerId;
   const target = e.target as HTMLElement;
   // clicks inside the card contextual toolbar (or its color popover) must not
   // reach canvas handling below, or they'd read as an empty-canvas click and
@@ -250,6 +254,8 @@ export function cloneInPlace(view: BoardView, rootIds: string[]): string[] {
 }
 
 export function onPointerMove(view: BoardView, e: PointerEvent) {
+  if (e.pointerType === "touch" && view.activePenPointerId !== null) return;
+  if (e.pointerType === "pen" && view.activePenPointerId !== e.pointerId) return;
   // throttle: heavy work (layout reads + edge redraw) at most once per frame
   if (view.drag.kind === "none") return;
   view.lastMoveEvent = e;
@@ -444,6 +450,9 @@ export function processPointerMove(view: BoardView, e: PointerEvent) {
 }
 
 export function onPointerUp(view: BoardView, e: PointerEvent) {
+  if (e.pointerType === "touch" && view.activePenPointerId !== null) return;
+  if (e.pointerType === "pen" && view.activePenPointerId === e.pointerId)
+    view.activePenPointerId = null;
   // flush the last pointer position (throttled moves may lag one frame)
   if (view.drag.kind !== "none") view.processPointerMove(e);
   const d = view.drag;

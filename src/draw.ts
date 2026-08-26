@@ -192,6 +192,7 @@ export class DrawSession {
     this.svg.addEventListener("pointerdown", (e) => this.onDown(e));
     this.svg.addEventListener("pointermove", (e) => this.onMove(e));
     this.svg.addEventListener("pointerup", (e) => this.onUp(e));
+    this.svg.addEventListener("pointercancel", (e) => this.onUp(e));
     this.render();
   }
 
@@ -238,12 +239,14 @@ export class DrawSession {
 
   // ---------------------------------------------------------------- pointers
   private onDown(e: PointerEvent) {
-    if (e.button !== 0) return;
+    // iPadOS reports a resting palm as touch while Apple Pencil is pen input.
+    // Touch is navigation/palm input, never ink input; mouse and Pencil remain usable.
+    if (e.pointerType === "touch" || e.button !== 0) return;
     e.preventDefault();
     this.svg.setPointerCapture(e.pointerId);
     const { x, y } = this.toCoords(e);
-    // pen/touch use real pressure; mouse has none -> draw at the chosen (max) size
-    const pressure = e.pointerType === "pen" || e.pointerType === "touch" ? e.pressure || 0.5 : 1;
+    // Pencil uses real pressure; mouse has none -> draw at the chosen (max) size.
+    const pressure = e.pointerType === "pen" ? e.pressure || 0.5 : 1;
 
     if (this.tool === "pen") {
       this.snapshot();
@@ -277,8 +280,9 @@ export class DrawSession {
     const { x, y } = this.toCoords(e);
 
     if (this.live) {
-      // pen/touch use real pressure; mouse has none -> draw at the chosen (max) size
-    const pressure = e.pointerType === "pen" || e.pointerType === "touch" ? e.pressure || 0.5 : 1;
+      // Ignore touch moves so a palm cannot corrupt an in-progress Pencil stroke.
+      if (e.pointerType === "touch") return;
+      const pressure = e.pointerType === "pen" ? e.pressure || 0.5 : 1;
       this.live.push([x, y, pressure]);
       this.renderLive();
       return;
@@ -316,6 +320,9 @@ export class DrawSession {
   }
 
   private onUp(e: PointerEvent) {
+    // Touch never starts a drawing gesture; its up/cancel must not finish a
+    // simultaneous Apple Pencil stroke.
+    if (e.pointerType === "touch") return;
     try { this.svg.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
     if (this.live) {
       if (this.live.length >= 1) {

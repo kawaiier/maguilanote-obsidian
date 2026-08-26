@@ -153,6 +153,8 @@ export class BoardView extends TextFileView {
   // pointermove throttling (1x per frame)
   rafPending = false;
   lastMoveEvent: PointerEvent | null = null;
+  // Used to reject a palm touch while an Apple Pencil interaction is active.
+  activePenPointerId: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: MaguilanotePlugin) {
     super(leaf);
@@ -510,6 +512,7 @@ export class BoardView extends TextFileView {
     this.registerDomEvent(this.viewportEl, "pointerdown", (e) => this.onPointerDown(e));
     this.registerDomEvent(this.viewportEl, "pointermove", (e) => this.onPointerMove(e));
     this.registerDomEvent(this.viewportEl, "pointerup", (e) => this.onPointerUp(e));
+    this.registerDomEvent(this.viewportEl, "pointercancel", (e) => this.onPointerUp(e));
     this.registerDomEvent(this.viewportEl, "dblclick", (e) => this.onDblClick(e));
     this.registerDomEvent(this.viewportEl, "wheel", (e) => this.onWheel(e), { passive: false });
     this.registerDomEvent(this.viewportEl, "contextmenu", (e) => this.onContextMenu(e));
