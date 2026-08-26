@@ -349,7 +349,7 @@ export class BoardView extends TextFileView {
         // iPadOS does not reliably start native HTML drag-and-drop from Apple
         // Pencil input, so provide a small Pointer Events fallback.
         b.addEventListener("pointerdown", (ev) => {
-          if (ev.pointerType === "pen") this.dragToolWithPointer(b, opts.drag!, ev);
+          if (ev.pointerType === "pen") this.dragToolWithPointer(b, opts.drag!, label, ev);
         });
       }
       return b;
@@ -537,16 +537,18 @@ export class BoardView extends TextFileView {
   }
 
   /** Drag a toolbar tool with Apple Pencil (native HTML DnD is not reliable on iPadOS). */
-  private dragToolWithPointer(btn: HTMLElement, key: string, start: PointerEvent) {
+  private dragToolWithPointer(btn: HTMLElement, key: string, label: string, start: PointerEvent) {
     start.preventDefault();
     const pointerId = start.pointerId;
     const sx = start.clientX, sy = start.clientY;
     let moved = false;
+    let ghost: HTMLElement | null = null;
     const stop = () => {
       window.removeEventListener("pointermove", move, true);
       window.removeEventListener("pointerup", up, true);
       window.removeEventListener("pointercancel", cancel, true);
       btn.removeClass("mgn-tool-dragging");
+      ghost?.remove();
     };
     const move = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return;
@@ -554,6 +556,14 @@ export class BoardView extends TextFileView {
       if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) > 8) {
         moved = true;
         btn.addClass("mgn-tool-dragging");
+        ghost = document.body.createDiv({ cls: "mgn-tool-drag-ghost" });
+        const icon = btn.querySelector("svg");
+        if (icon) ghost.appendChild(icon.cloneNode(true));
+        ghost.createSpan({ text: label });
+      }
+      if (ghost) {
+        ghost.style.left = `${ev.clientX + 14}px`;
+        ghost.style.top = `${ev.clientY + 14}px`;
       }
     };
     const up = (ev: PointerEvent) => {

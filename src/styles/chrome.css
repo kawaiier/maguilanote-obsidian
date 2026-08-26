@@ -28,6 +28,32 @@
   background: var(--mgn-panel-hover-bg);
   color: var(--mgn-panel-text-strong);
 }
+.mgn-tool-dragging {
+  background: var(--mgn-accent) !important;
+  color: var(--mgn-white) !important;
+  opacity: 0.7;
+}
+.mgn-tool-drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 1px solid var(--mgn-panel-border);
+  border-radius: 6px;
+  background: var(--mgn-panel-bg);
+  color: var(--mgn-panel-text-strong);
+  box-shadow: var(--mgn-panel-shadow);
+  pointer-events: none;
+  white-space: nowrap;
+  font-size: 12px;
+  opacity: 0.95;
+}
+.mgn-tool-drag-ghost svg {
+  width: 17px;
+  height: 17px;
+}
 .mgn-tool-active {
   background: var(--mgn-accent) !important;
   color: var(--mgn-white) !important;
