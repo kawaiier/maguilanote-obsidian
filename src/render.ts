@@ -74,14 +74,14 @@ export function renderVideoPlayer(view: BoardView, el: HTMLElement, src: string)
 
 /** compact play/seek/time player for a record card */
 export function renderRecordPlayer(el: HTMLElement, it: Item, src: string) {
-  let audio = recordAudio.get(it.id);
-  if (!audio || audio.src !== src) {
-    audio?.pause();
-    audio = new Audio(src);
-    audio.preload = "metadata";
-    recordAudio.set(it.id, audio);
-  }
+  const oldAudio = recordAudio.get(it.id);
+  oldAudio?.pause();
+  // Keep the media element in the DOM. iPadOS is more reliable with a real,
+  // attached <audio> element than with an unattached `new Audio()` object.
   const player = el.createDiv({ cls: "mgn-record-player" });
+  const audio = player.createEl("audio", { attr: { src, preload: "metadata" } });
+  audio.hide();
+  recordAudio.set(it.id, audio);
   const btn = player.createEl("button", { cls: "mgn-record-play" });
   const bar = player.createDiv({ cls: "mgn-record-bar" });
   const fill = bar.createDiv({ cls: "mgn-record-bar-fill" });
@@ -90,26 +90,26 @@ export function renderRecordPlayer(el: HTMLElement, it: Item, src: string) {
   // MediaRecorder webm files carry no duration metadata (audio.duration is
   // Infinity), so fall back to the length measured while recording
   const total = () =>
-    Number.isFinite(audio!.duration) && audio!.duration > 0 ? audio!.duration : it.duration ?? 0;
+    Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : it.duration ?? 0;
   const sync = () => {
-    setIcon(btn, audio!.paused ? "play" : "pause");
+    setIcon(btn, audio.paused ? "play" : "pause");
     const t = total();
-    fill.style.width = t ? `${Math.min(100, (audio!.currentTime / t) * 100)}%` : "0%";
-    time.setText(`${fmtTime(audio!.currentTime)} / ${fmtTime(t)}`);
+    fill.style.width = t ? `${Math.min(100, (audio.currentTime / t) * 100)}%` : "0%";
+    time.setText(`${fmtTime(audio.currentTime)} / ${fmtTime(t)}`);
   };
   // assigned (not addEventListener) so re-renders replace the handlers of the reused element
   audio.onloadedmetadata = audio.ontimeupdate = audio.onplay = audio.onpause = audio.onended = sync;
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (audio!.paused) audio!.play().catch(() => {});
-    else audio!.pause();
+    if (audio.paused) audio.play().catch(() => {});
+    else audio.pause();
   });
   bar.addEventListener("click", (e) => {
     e.stopPropagation();
     const t = total();
     if (!t) return;
     const r = bar.getBoundingClientRect();
-    audio!.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * t;
+    audio.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * t;
     sync();
   });
   sync();

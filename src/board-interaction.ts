@@ -47,8 +47,11 @@ export function onPointerDown(view: BoardView, e: PointerEvent) {
   // Keep touch inside the board. Without cancelling the gesture here, iPadOS /
   // Obsidian can interpret a horizontal marquee as the mobile side-panel swipe.
   if (e.pointerType === "touch") {
-    e.preventDefault();
-    e.stopPropagation();
+    const target = e.target as HTMLElement;
+    if (!target.closest(".mgn-context-toolbar, .mgn-ctx-popover")) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (view.activePenPointerId !== null) return;
   }
   if (e.pointerType === "pen") view.activePenPointerId = e.pointerId;
@@ -73,6 +76,14 @@ export function onPointerDown(view: BoardView, e: PointerEvent) {
   if (e.button !== 0) return;
 
   if (interactive) return;
+
+  // Finger is reserved for navigating the canvas, not moving individual cards.
+  // Pencil keeps the precise object-selection and drag behavior below.
+  if (e.pointerType === "touch") {
+    view.drag = { kind: "pan", startX: e.clientX, startY: e.clientY, panX: view.panX, panY: view.panY };
+    view.viewportEl.setPointerCapture(e.pointerId);
+    return;
+  }
 
   view.lastDownOnCanvas = false;
 

@@ -351,7 +351,8 @@ export class BoardView extends TextFileView {
         // iPadOS does not reliably start native HTML drag-and-drop from Apple
         // Pencil input, so provide a small Pointer Events fallback.
         b.addEventListener("pointerdown", (ev) => {
-          if (ev.pointerType === "pen") this.dragToolWithPointer(b, opts.drag!, label, ev);
+          if (ev.pointerType === "pen" || ev.pointerType === "touch")
+            this.dragToolWithPointer(b, opts.drag!, label, ev);
         });
       }
       return b;
@@ -520,6 +521,8 @@ export class BoardView extends TextFileView {
     // resulting PointerEvent reaches the canvas. Cancel touch at the native
     // touch boundary; Pencil input is unaffected because it has no touchstart.
     this.registerDomEvent(this.viewportEl, "touchstart", (e) => {
+      const target = e.target as HTMLElement;
+      if (target.closest(".mgn-context-toolbar, .mgn-ctx-popover, audio, video, button, input, select, textarea")) return;
       e.preventDefault();
       e.stopPropagation();
     }, { passive: false, capture: true });
@@ -684,12 +687,16 @@ export class BoardView extends TextFileView {
     const cardEl = target.closest<HTMLElement>(".mgn-card");
     if (!cardEl?.dataset.id) return;
     const it = this.item(cardEl.dataset.id);
-    if (!it || it.type !== "sketch") return;
+    if (!it || (it.type !== "sketch" && it.type !== "swatch")) return;
     const now = Date.now();
     const closeEnough = Math.hypot(e.clientX - this.lastClickX, e.clientY - this.lastClickY) < 24;
     if (this.lastClickId === it.id && closeEnough && now - this.lastClickAt < 450) {
       this.lastClickId = null;
-      this.openSketchPopup(it);
+      if (it.type === "sketch") this.openSketchPopup(it);
+      else new TextPromptModal(this.app, "Color (hex)", it.swatch ?? "#cccccc", (v) => {
+        const hex = v.startsWith("#") ? v : `#${v}`;
+        if (/^#[0-9a-f]{6}$/i.test(hex)) { it.swatch = hex; this.commit(); }
+      }).open();
     }
     this.lastClickId = it.id;
     this.lastClickAt = now;
@@ -759,6 +766,11 @@ export class BoardView extends TextFileView {
         this.openRecordPopup(it);
         return;
       case "swatch":
+        new TextPromptModal(this.app, "Color (hex)", it.swatch ?? "#cccccc", (v) => {
+          const hex = v.startsWith("#") ? v : `#${v}`;
+          if (/^#[0-9a-f]{6}$/i.test(hex)) { it.swatch = hex; this.commit(); }
+        }).open();
+        return;
       case "todo":
       case "column":
         return;

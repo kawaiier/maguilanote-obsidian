@@ -1231,6 +1231,8 @@ img.mgn-preview-media {
   border-radius: 6px;
   color: var(--mgn-panel-text);
   cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 .mgn-context-inline .mgn-ctx-tool {
   color: var(--text-normal);
@@ -1260,6 +1262,8 @@ img.mgn-preview-media {
 }
 .mgn-ctx-custom {
   display: flex;
+  pointer-events: auto;
+  touch-action: manipulation;
   align-items: center;
   justify-content: center;
 }

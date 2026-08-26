@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-08-26 (1.1.0 beta)
+
+- Improved iPad interaction: finger drags pan the canvas, Apple Pencil keeps precise object manipulation, swatch cards open their color editor on double-tap, toolbar media dragging works with Pencil and touch, record playback uses an attached audio element for iPad reliability, and drawing controls accept touch and Pencil input. Files: `src/board-view.ts`, `src/board-interaction.ts`, `src/render.ts`, `src/record-card.ts`, `src/styles/drawing.css`.
+
 Living log of significant changes to the project. This is **not** optional bookkeeping — every significant change (new feature, format change, dependency change, removed feature, policy change) gets an entry here at the time it's made. See the documentation policy in [.claude/CLAUDE.md](../.claude/CLAUDE.md).
 
 Format: `YYYY-MM-DD — short description. Why (if not obvious). Files touched.`

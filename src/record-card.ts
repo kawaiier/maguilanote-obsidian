@@ -40,7 +40,7 @@ export function openRecordPopup(view: BoardView, it: Item) {
   const timer = body.createDiv({ cls: "mgn-record-timer", text: "00:00" });
   if (it.path) {
     const f = view.resolveFile(it.path);
-    if (f) renderRecordPlayer(body, it, view.app.vault.getResourcePath(f as TFile));
+    if (f) renderRecordPlayer(body, it, view.app.vault.getResourcePath(f));
   }
 
   const btnRow = body.createDiv({ cls: "mgn-record-btn-row" });
