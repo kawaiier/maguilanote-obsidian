@@ -40,6 +40,44 @@ export class TextPromptModal extends Modal {
   }
 }
 
+export class ColorPromptModal extends Modal {
+  constructor(
+    app: App,
+    private initial: string,
+    private cb: (value: string) => void,
+  ) { super(app); }
+
+  onOpen() {
+    this.titleEl.setText("Choose color");
+    const value = /^#[0-9a-f]{6}$/i.test(this.initial) ? this.initial : "#cccccc";
+    const row = this.contentEl.createDiv({ cls: "mgn-color-prompt" });
+    row.createEl("input", { type: "color", value, attr: { "aria-label": "Color spectrum" } });
+    const hex = row.createEl("input", {
+      type: "text", value, placeholder: "#RRGGBB", cls: "mgn-prompt-input",
+      attr: { "aria-label": "Hex color" },
+    });
+    const picker = row.querySelector<HTMLInputElement>('input[type="color"]')!;
+    const normalize = (v: string) => {
+      const next = v.startsWith("#") ? v : `#${v}`;
+      return /^#[0-9a-f]{6}$/i.test(next) ? next : null;
+    };
+    picker.addEventListener("input", () => { hex.value = picker.value; });
+    new Setting(this.contentEl)
+      .addButton((b) => b.setButtonText("OK").setCta().onClick(() => {
+        const next = normalize(hex.value);
+        if (!next) { hex.focus(); return; }
+        this.close(); this.cb(next);
+      }))
+      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
+    hex.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); const next = normalize(hex.value); if (next) { this.close(); this.cb(next); } }
+    });
+    window.setTimeout(() => hex.focus(), 10);
+  }
+
+  onClose() { this.contentEl.empty(); }
+}
+
 export class ImportTemplateConfirmModal extends Modal {
   constructor(app: App, private name: string, private onConfirm: () => void) {
     super(app);

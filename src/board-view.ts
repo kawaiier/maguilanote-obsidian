@@ -5,7 +5,7 @@ import {
   setIcon,
 } from "obsidian";
 import type MaguilanotePlugin from "./main";
-import { SettingsModal, TextPromptModal } from "./modals";
+import { ColorPromptModal, SettingsModal, TextPromptModal } from "./modals";
 import { drawEdgesFn, renderCardFn } from "./render";
 import { ensureGoogleFont, fontFamilyValue } from "./fonts";
 import { ContextToolbar, DrawSession } from "./draw";
@@ -693,9 +693,9 @@ export class BoardView extends TextFileView {
     if (this.lastClickId === it.id && closeEnough && now - this.lastClickAt < 450) {
       this.lastClickId = null;
       if (it.type === "sketch") this.openSketchPopup(it);
-      else new TextPromptModal(this.app, "Color (hex)", it.swatch ?? "#cccccc", (v) => {
-        const hex = v.startsWith("#") ? v : `#${v}`;
-        if (/^#[0-9a-f]{6}$/i.test(hex)) { it.swatch = hex; this.commit(); }
+      else new ColorPromptModal(this.app, it.swatch ?? "#cccccc", (hex) => {
+        it.swatch = hex;
+        this.commit();
       }).open();
     }
     this.lastClickId = it.id;
@@ -766,9 +766,9 @@ export class BoardView extends TextFileView {
         this.openRecordPopup(it);
         return;
       case "swatch":
-        new TextPromptModal(this.app, "Color (hex)", it.swatch ?? "#cccccc", (v) => {
-          const hex = v.startsWith("#") ? v : `#${v}`;
-          if (/^#[0-9a-f]{6}$/i.test(hex)) { it.swatch = hex; this.commit(); }
+        new ColorPromptModal(this.app, it.swatch ?? "#cccccc", (hex) => {
+          it.swatch = hex;
+          this.commit();
         }).open();
         return;
       case "todo":
