@@ -61,18 +61,23 @@ export class ColorPromptModal extends Modal {
       const next = v.startsWith("#") ? v : `#${v}`;
       return /^#[0-9a-f]{6}$/i.test(next) ? next : null;
     };
+    let hexTouched = false;
     picker.addEventListener("input", () => { hex.value = picker.value; });
+    picker.addEventListener("change", () => { hex.value = picker.value; });
+    hex.addEventListener("input", () => { hexTouched = true; });
+    // iPadOS can report stale input/change values for color pickers, so the OK
+    // action reads the live picker value unless the user typed the hex field.
+    const ok = () => {
+      const next = hexTouched ? (normalize(hex.value) ?? normalize(picker.value)) : normalize(picker.value);
+      if (!next) { hex.focus(); return; }
+      this.close(); this.cb(next);
+    };
     new Setting(this.contentEl)
-      .addButton((b) => b.setButtonText("OK").setCta().onClick(() => {
-        const next = normalize(hex.value);
-        if (!next) { hex.focus(); return; }
-        this.close(); this.cb(next);
-      }))
+      .addButton((b) => b.setButtonText("OK").setCta().onClick(ok))
       .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
     hex.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); const next = normalize(hex.value); if (next) { this.close(); this.cb(next); } }
+      if (e.key === "Enter") { e.preventDefault(); ok(); }
     });
-    window.setTimeout(() => hex.focus(), 10);
   }
 
   onClose() { this.contentEl.empty(); }
