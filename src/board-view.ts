@@ -516,6 +516,13 @@ export class BoardView extends TextFileView {
     this.applyAppearance();
 
     // events
+    // iPadOS/Obsidian recognizes edge swipes from touchstart, before the
+    // resulting PointerEvent reaches the canvas. Cancel touch at the native
+    // touch boundary; Pencil input is unaffected because it has no touchstart.
+    this.registerDomEvent(this.viewportEl, "touchstart", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    }, { passive: false, capture: true });
     this.registerDomEvent(this.viewportEl, "pointerdown", (e) => this.onPointerDown(e));
     this.registerDomEvent(this.viewportEl, "pointermove", (e) => this.onPointerMove(e));
     this.registerDomEvent(this.viewportEl, "pointerup", (e) => this.onPointerUp(e));
